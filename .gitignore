@@ -10,3 +10,4 @@ generated.go
 *.iws
 *.iml
 *.ipr
+.env
