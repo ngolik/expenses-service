@@ -5,3 +5,8 @@
 *.terraform.lock.hcl
 generated.go
 .vscode
+### IntelliJ IDEA ###
+.idea
+*.iws
+*.iml
+*.ipr
