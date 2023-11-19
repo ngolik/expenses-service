@@ -1,0 +1,7 @@
+/bin
+/config.yaml
+*.rdb
+**/.terraform
+*.terraform.lock.hcl
+generated.go
+.vscode
