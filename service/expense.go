@@ -6,12 +6,21 @@ import (
 )
 
 func AddExpense(expense model.Expense) error {
-	// Assuming DB is a global variable that holds the GORM DB connection
 	result := database.DB.Create(&expense)
-
 	if result.Error != nil {
 		return result.Error
 	}
 
 	return nil
+}
+
+// GetAllExpenses retrieves all expenses from the database.
+func GetAllExpenses() ([]model.Expense, error) {
+	var expenses []model.Expense
+
+	result := database.DB.Find(&expenses)
+	if result.Error != nil {
+		return nil, result.Error
+	}
+	return expenses, nil
 }
