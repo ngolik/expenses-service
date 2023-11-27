@@ -1,99 +1,119 @@
 package api
 
 import (
+	// "errors"
 	"fmt"
-	"github.com/ArthurHlt/go-eureka-client/eureka"
-	"github.com/joho/godotenv"
-	"log"
+	log "log"
+	"net"
 	"os"
 	"strconv"
-	"time"
+	"strings"
+
+	"github.com/go-kit/kit/sd/eureka"
+	kitlog "github.com/go-kit/log"
+	"github.com/hudl/fargo"
+	"github.com/joho/godotenv"
 )
 
-func createEurekaClient(eurekaHost, eurekaPort string) (*eureka.Client, error) {
-	client := eureka.NewClient([]string{fmt.Sprintf("http://%s:%s/eureka", eurekaHost, eurekaPort)})
-	fmt.Println("Printing Client Details..")
-	fmt.Println(client)
-	return client, nil
-}
-
-func createInstanceInfo(appName string) (*eureka.InstanceInfo, error) {
-	serverPort, err := strconv.Atoi(os.Getenv("SERVER_PORT"))
-	if err != nil {
-		return nil, err
-	}
-	instance := eureka.NewInstanceInfo(
-		os.Getenv("EUREKA_HOST"),
-		os.Getenv("APP_NAME"),
-		"127.0.0.1",
-		serverPort,
-		30,
-		false,
-	)
-	// Example health check URL
-	instance.HealthCheckUrl = fmt.Sprintf("http://%s:8083/health", instance.HostName)
-
-	fmt.Println(appName)
-	return instance, nil
-}
-
-func registerWithEureka(client *eureka.Client, appName string, instance *eureka.InstanceInfo) error {
-	if err := client.RegisterInstance(appName, instance); err != nil {
-		return fmt.Errorf("failed to register instance with Eureka: %v", err)
-	}
-	return nil
-}
-
-func sendHeartbeat(client *eureka.Client, appName, hostName string) error {
-	if err := client.SendHeartbeat(appName, hostName); err != nil {
-		return fmt.Errorf("failed to send heartbeat to Eureka: %v", err)
-	}
-	return nil
-}
-
-func EurekaClientConfig() {
+func buildFargoInstanceBody(appName, status string) *fargo.Instance {
 	// Load environment variables from .env file
 	if err := godotenv.Load(); err != nil {
 		log.Fatal("Error loading .env file")
 	}
 
-	eurekaHost := os.Getenv("EUREKA_HOST")
-	eurekaPort := os.Getenv("EUREKA_PORT")
-	appName := os.Getenv("APP_NAME")
-
-	client, err := createEurekaClient(eurekaHost, eurekaPort)
+	ipAddress, err := externalIP()
 	if err != nil {
-		log.Printf("Failed to create Eureka client: %v", err)
-		return
+		fmt.Println(err)
 	}
 
-	instance, err := createInstanceInfo(appName)
+	stringPort := os.Getenv("SERVER_PORT")
+
+	port, err := strconv.Atoi(stringPort)
 	if err != nil {
-		log.Printf("Failed to create Eureka instance info: %v", err)
-		return
+		kitlog.ErrMissingValue.Error()
 	}
 
-	err = registerWithEureka(client, appName, instance)
-	if err != nil {
-		log.Printf("Failed to register instance with Eureka: %v", err)
-		return
+	return &fargo.Instance{
+		InstanceId:        ipAddress + ":" + stringPort,
+		HostName:          ipAddress,
+		App:               strings.ToUpper(appName),
+		IPAddr:            ipAddress,
+		VipAddress:        appName,
+		SecureVipAddress:  appName,
+		Status:            fargo.StatusType(status),
+		Overriddenstatus:  "UNKNOWN",
+		Port:              port,
+		PortEnabled:       true,
+		SecurePort:        8443,
+		SecurePortEnabled: false,
+		HomePageUrl:       "http://" + ipAddress + ":" + strconv.Itoa(port) + "/",
+		StatusPageUrl:     "http://" + ipAddress + ":" + strconv.Itoa(port) + "/status",
+		HealthCheckUrl:    "http://" + ipAddress + ":" + strconv.Itoa(port) + "/health",
+
+		CountryId: 0,
+		DataCenterInfo: fargo.DataCenterInfo{
+			Name: "MyOwn", Class: "com.netflix.appinfo.InstanceInfo$DefaultDataCenterInfo",
+		},
+		LeaseInfo: fargo.LeaseInfo{},
+		Metadata:  fargo.InstanceMetadata{},
+		UniqueID:  nil,
+	}
+}
+
+// BuildFargoInstance build a Fargo Instance and return eureka.Registrar
+func BuildFargoInstance() eureka.Registrar {
+	eurekaAddr := os.Getenv("EUREKA_URL")
+	if eurekaAddr == "" {
+		fmt.Println("EUREKA_SERVER_URL is not set")
 	}
 
-	err = sendHeartbeat(client, appName, instance.HostName)
-	if err != nil {
-		log.Printf("Failed to send heartbeat to Eureka: %v", err)
-		return
-	}
+	logger := kitlog.NewLogfmtLogger(os.Stderr)
+	logger = kitlog.With(logger, "ts", kitlog.DefaultTimestamp)
 
-	// Periodically send heartbeats to renew the lease
-	go func() {
-		for {
-			time.Sleep(5 * time.Second) // Adjust the interval as needed
-			client.SendHeartbeat(instance.App, instance.HostName)
-			fmt.Println("Ping")
+	var fargoConfig fargo.Config
+	fargoConfig.Eureka.ServiceUrls = []string{eurekaAddr}
+	fargoConfig.Eureka.PollIntervalSeconds = 1
+
+	fargoConnection := fargo.NewConnFromConfig(fargoConfig)
+	fInstance := buildFargoInstanceBody(os.Getenv("APP_NAME"), "UP")
+	return *eureka.NewRegistrar(&fargoConnection, fInstance, kitlog.With(logger, "component", "registrar"))
+}
+
+// aux func to get external ip from
+// aux func to get external ip from
+func externalIP() (string, error) {
+	ifaces, err := net.Interfaces()
+	if err != nil {
+		return "", err
+	}
+	for _, iface := range ifaces {
+		if iface.Flags&net.FlagUp == 0 {
+			continue // interface down
 		}
-	}()
-
-	fmt.Println("Printing Instance Details...")
-	fmt.Println(client.GetInstance(instance.App, instance.HostName))
+		if iface.Flags&net.FlagLoopback != 0 {
+			continue // loopback interface
+		}
+		addrs, err := iface.Addrs()
+		if err != nil {
+			return "", err
+		}
+		for _, addr := range addrs {
+			var ip net.IP
+			switch v := addr.(type) {
+			case *net.IPNet:
+				ip = v.IP
+			case *net.IPAddr:
+				ip = v.IP
+			}
+			if ip == nil || ip.IsLoopback() {
+				continue
+			}
+			ip = ip.To4()
+			if ip == nil {
+				continue // not an ipv4 address
+			}
+			return ip.String(), nil
+		}
+	}
+	return os.Getenv("IP"), nil // fallback to localhost if no suitable IP is found
 }
