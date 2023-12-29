@@ -13,8 +13,10 @@ RUN go mod download
 # Copy the source code into the container
 COPY . .
 
+COPY .env /app/.env
+
 # Build the Go application
-RUN go build -o app
+RUN CGO_ENABLED=0 GOOS=linux go build -o app
 
 # Use a minimal base image for the final image
 FROM alpine:latest
@@ -26,7 +28,7 @@ WORKDIR /app
 COPY --from=builder /app/app .
 
 # Expose the port the application runs on
-EXPOSE 8080
+EXPOSE 8082
 
 # Command to run the application
 CMD ["./app"]

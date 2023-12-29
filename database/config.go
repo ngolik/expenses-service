@@ -55,13 +55,18 @@ func MigrateDatabase() error {
 }
 
 func GetDatabaseConfigFromEnv() DatabaseConfig {
-	if err := godotenv.Load(); err != nil {
-		log.Fatal("Error loading .env file")
+	envFile := os.Getenv("EXPENSE_SERVICE_ENV_FILE_PATH")
+	if envFile == "" {
+		envFile = ".env"
+	}
+
+	if err := godotenv.Load(envFile); err != nil {
+		log.Fatal(err, " Error loading db props .env file")
 	}
 	return DatabaseConfig{
-		DBUser:    os.Getenv("DB_USER"),
-		DBPassword: os.Getenv("DB_PASSWORD"),
-		DBName:     os.Getenv("DB_NAME"),
+		DBUser:     os.Getenv("POSTGRES_USER"),
+		DBPassword: os.Getenv("POSTGRES_PASSWORD"),
+		DBName:     os.Getenv("POSTGRES_NAME"),
 	}
 }
 

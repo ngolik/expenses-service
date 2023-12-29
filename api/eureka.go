@@ -18,7 +18,7 @@ import (
 func buildFargoInstanceBody(appName, status string) *fargo.Instance {
 	// Load environment variables from .env file
 	if err := godotenv.Load(); err != nil {
-		log.Fatal("Error loading .env file")
+		log.Fatal(err, "Error loading .env file")
 	}
 
 	ipAddress, err := externalIP()
