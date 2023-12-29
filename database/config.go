@@ -57,6 +57,7 @@ func MigrateDatabase() error {
 func GetDatabaseConfigFromEnv() DatabaseConfig {
 	envFile := os.Getenv("EXPENSE_SERVICE_ENV_FILE_PATH")
 	if envFile == "" {
+		log.Println("envFile not found")
 		envFile = ".env"
 	}
 

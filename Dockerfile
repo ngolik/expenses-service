@@ -15,7 +15,7 @@ COPY . .
 
 COPY .env /app/.env
 
-# Build the Go application
+# Build the Go applicationz
 RUN CGO_ENABLED=0 GOOS=linux go build -o app
 
 # Use a minimal base image for the final image
@@ -26,6 +26,7 @@ WORKDIR /app
 
 # Copy only the necessary files from the builder image
 COPY --from=builder /app/app .
+COPY .env /app
 
 # Expose the port the application runs on
 EXPOSE 8082
