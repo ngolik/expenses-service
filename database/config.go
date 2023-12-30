@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strconv"
 
 	"github.com/joho/godotenv"
 	"github.com/ngolik/expense-service/model"
@@ -18,17 +19,20 @@ type DatabaseConfig struct {
 	DBUser     string
 	DBPassword string
 	DBName     string
+	DBHost     string
+	DBPort     int
 }
 
 // ConnectDatabase connects to the database using the provided configuration.
 func ConnectDatabase(config DatabaseConfig) error {
 	// Формирование строки подключения
-	connectionString := fmt.Sprintf("user=%s dbname=%s password=%s",
-		config.DBUser, config.DBName, config.DBPassword)
+	connectionString := fmt.Sprintf("host=cashflow-postgres user=%s dbname=%s password=%s port=%d sslmode=disable",
+		config.DBUser, config.DBName, config.DBPassword, config.DBPort)
 
 	// Открытие соединения с базой данных с использованием gorm.Open
 	db, err := gorm.Open(postgres.Open(connectionString), &gorm.Config{})
 	if err != nil {
+		fmt.Println("Connection details: ", connectionString)
 		return fmt.Errorf("failed to connect to the database: %v", err)
 	}
 	// Log database connection details
@@ -64,10 +68,16 @@ func GetDatabaseConfigFromEnv() DatabaseConfig {
 	if err := godotenv.Load(envFile); err != nil {
 		log.Fatal(err, " Error loading db props .env file")
 	}
+	port, err := strconv.Atoi(os.Getenv("POSTGRES_PORT"))
+	if err != nil {
+		fmt.Errorf("Error converting string to int")
+	}
 	return DatabaseConfig{
 		DBUser:     os.Getenv("POSTGRES_USER"),
 		DBPassword: os.Getenv("POSTGRES_PASSWORD"),
 		DBName:     os.Getenv("POSTGRES_NAME"),
+		DBHost:     os.Getenv("POSTGRES_HOST"),
+		DBPort:     port,
 	}
 }
 
