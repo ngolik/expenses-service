@@ -8,4 +8,5 @@ func SetupRoutes(router *gin.Engine) {
 	expensesGroup := router.Group("/expenses/rest")
 	expensesGroup.POST("/add", AddExpenseHandler)
 	expensesGroup.GET("/all", GetExpensesHandler)
+	expensesGroup.GET("/:id", GetExpenseByIdHandler)
 }

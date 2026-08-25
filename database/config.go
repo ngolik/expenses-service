@@ -50,7 +50,7 @@ func ConnectDatabase(config DatabaseConfig) error {
 // MigrateDatabase performs auto-migration for the database schema.
 func MigrateDatabase() error {
 	// AutoMigrate here for better control
-	err := DB.AutoMigrate(&model.Expense{})
+	err := DB.AutoMigrate(&model.Expense{}, &model.User{})
 	if err != nil {
 		return fmt.Errorf("failed to auto-migrate database schema: %v", err)
 	}
