@@ -31,11 +31,13 @@ type WaitingDeliveryCostResponse struct {
 	Amount     float64 `json:"amount"`
 }
 
-// AddWaitingDeliveryCostHandler creates a new wait-cost record. This is a
-// new, additional creation path alongside AddExpenseHandler - it requires
-// deliveryId, userId (validated against auth-service), and amount, and
-// rejects (4xx) when any is missing/invalid. It has no effect on
-// AddExpenseHandler or POST /expenses/rest/add's existing behavior.
+// AddWaitingDeliveryCostHandler creates a new wait-cost record and returns
+// it (including the generated id) so the caller can retrieve it afterwards
+// via GetWaitingDeliveryCostHandler. This is a new, additional creation path
+// alongside AddExpenseHandler - it requires deliveryId, userId (validated
+// against auth-service), and amount, and rejects (4xx) when any is
+// missing/invalid. It has no effect on AddExpenseHandler or
+// POST /expenses/rest/add's existing behavior.
 func AddWaitingDeliveryCostHandler(c *gin.Context) {
 	var expense model.Expense
 	if err := c.BindJSON(&expense); err != nil {
@@ -43,7 +45,7 @@ func AddWaitingDeliveryCostHandler(c *gin.Context) {
 		return
 	}
 
-	err := service.AddWaitingDeliveryCost(expense, waitingDeliveryCostValidator, waitingDeliveryCostRepo)
+	err := service.AddWaitingDeliveryCost(&expense, waitingDeliveryCostValidator, waitingDeliveryCostRepo)
 	if err != nil {
 		var validationErr *service.ValidationError
 		var upstreamErr *service.UpstreamError
@@ -58,7 +60,12 @@ func AddWaitingDeliveryCostHandler(c *gin.Context) {
 		return
 	}
 
-	c.JSON(200, gin.H{"message": "Waiting delivery cost recorded successfully"})
+	c.JSON(200, WaitingDeliveryCostResponse{
+		ID:         expense.ID,
+		DeliveryID: expense.DeliveryID,
+		UserID:     expense.UserID,
+		Amount:     expense.Amount,
+	})
 }
 
 // GetWaitingDeliveryCostHandler retrieves one wait-cost record by id -

@@ -86,7 +86,12 @@ func newUpstreamError(err error) *UpstreamError {
 // be confirmed by validator to correspond to a real, existing user. This is
 // a new, additional creation path - it does not affect AddExpense/the
 // existing POST /expenses/rest/add contract in any way.
-func AddWaitingDeliveryCost(expense model.Expense, validator UserValidator, repo ExpenseRepository) error {
+//
+// expense is taken by pointer (not value) so that repo.Create's assignment
+// of the generated ID is visible to the caller after this function returns -
+// a value parameter would only ever populate a local copy's ID, leaving the
+// caller with a record it has no way to retrieve afterwards.
+func AddWaitingDeliveryCost(expense *model.Expense, validator UserValidator, repo ExpenseRepository) error {
 	if expense.DeliveryID == 0 {
 		return newValidationError("deliveryId is required")
 	}
@@ -105,7 +110,7 @@ func AddWaitingDeliveryCost(expense model.Expense, validator UserValidator, repo
 		return newValidationError("userId %d does not correspond to an existing user", expense.UserID)
 	}
 
-	if err := repo.Create(&expense); err != nil {
+	if err := repo.Create(expense); err != nil {
 		return err
 	}
 	return nil

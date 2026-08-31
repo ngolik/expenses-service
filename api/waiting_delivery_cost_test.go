@@ -155,6 +155,19 @@ func TestAddWaitingDeliveryCostHandler(t *testing.T) {
 			if w.Code != tt.wantStatus {
 				t.Fatalf("status = %d, want %d, body = %s", w.Code, tt.wantStatus, w.Body.String())
 			}
+
+			if tt.wantStatus == 200 {
+				var resp WaitingDeliveryCostResponse
+				if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+					t.Fatalf("failed to unmarshal success response: %v", err)
+				}
+				if resp.ID == 0 {
+					t.Fatalf("expected a non-zero id in the create response, got %+v", resp)
+				}
+				if resp.DeliveryID != tt.body.DeliveryID || resp.UserID != tt.body.UserID || resp.Amount != tt.body.Amount {
+					t.Fatalf("unexpected response body: %+v", resp)
+				}
+			}
 		})
 	}
 }

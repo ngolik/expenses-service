@@ -117,7 +117,7 @@ func TestAddWaitingDeliveryCost(t *testing.T) {
 			repo.createErr = tt.repoCreateErr
 
 			expense := tt.mutate(baseExpense())
-			err := AddWaitingDeliveryCost(expense, tt.validator, repo)
+			err := AddWaitingDeliveryCost(&expense, tt.validator, repo)
 
 			switch tt.wantErrType {
 			case "":
@@ -147,6 +147,9 @@ func TestAddWaitingDeliveryCost(t *testing.T) {
 
 			if tt.wantCreated && len(repo.records) != 1 {
 				t.Fatalf("expected 1 record to be created, got %d", len(repo.records))
+			}
+			if tt.wantCreated && expense.ID == 0 {
+				t.Fatalf("expected the generated id to be visible on the caller's expense after AddWaitingDeliveryCost returns, got 0")
 			}
 			if !tt.wantCreated && tt.wantErrType != "" && len(repo.records) != 0 {
 				t.Fatalf("expected no record to be created on rejection, got %d", len(repo.records))
