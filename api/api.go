@@ -10,4 +10,5 @@ func SetupRoutes(router *gin.Engine) {
 	expensesGroup.GET("/all", GetExpensesHandler)
 	expensesGroup.POST("/waiting-cost", AddWaitingDeliveryCostHandler)
 	expensesGroup.GET("/waiting-cost/:id", GetWaitingDeliveryCostHandler)
+	expensesGroup.GET("/:id", GetExpenseByIdHandler)
 }

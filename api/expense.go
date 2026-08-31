@@ -1,9 +1,13 @@
 package api
 
 import (
+	"errors"
+	"strconv"
+
 	"github.com/gin-gonic/gin"
 	"github.com/ngolik/expense-service/model"
 	"github.com/ngolik/expense-service/service"
+	"gorm.io/gorm"
 )
 
 func AddExpenseHandler(c *gin.Context) {
@@ -15,6 +19,10 @@ func AddExpenseHandler(c *gin.Context) {
 
 	err := service.AddExpense(expense)
 	if err != nil {
+		if errors.Is(err, service.ErrUnknownUser) {
+			c.JSON(400, gin.H{"error": err.Error()})
+			return
+		}
 		c.JSON(500, gin.H{"error": err.Error()})
 		return
 	}
@@ -31,6 +39,27 @@ func GetExpensesHandler(c *gin.Context) {
 	}
 
 	c.JSON(200, expenses)
+}
+
+// GetExpenseByIdHandler retrieves a single expense by id and returns it as JSON.
+func GetExpenseByIdHandler(c *gin.Context) {
+	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		c.JSON(400, gin.H{"error": "invalid id"})
+		return
+	}
+
+	expense, err := service.GetExpenseById(uint(id))
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			c.JSON(404, gin.H{"error": "expense not found"})
+			return
+		}
+		c.JSON(500, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(200, expense)
 }
 
 func GetHealthCheck(c *gin.Context) {
