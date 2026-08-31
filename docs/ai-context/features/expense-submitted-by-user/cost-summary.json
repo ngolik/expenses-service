@@ -1,0 +1,28 @@
+{
+  "slug": "expense-submitted-by-user",
+  "started_at": "2026-08-25T11:43:05.266Z",
+  "ended_at": "2026-08-25T12:44:51.790Z",
+  "branch": "",
+  "session_id": "164ac1a6-dc08-47c7-9a35-f9f3ea888704",
+  "session_filter": "session",
+  "session_files_available": 1,
+  "input_tokens": 4215247,
+  "uncached_input_tokens": 92,
+  "cache_tokens": 4215155,
+  "cache_read_tokens": 4151087,
+  "cache_creation_tokens": 64068,
+  "cache_creation_5m_tokens": 0,
+  "cache_creation_1h_tokens": 64068,
+  "output_tokens": 38449,
+  "cost_usd": 2.206745100000001,
+  "measured_usd": 0,
+  "estimated_usd": 2.206745100000001,
+  "cost_basis": "estimated",
+  "cost_basis_note": "Not billed usage — projected from token counts and published list prices (cache read 0.1× input, 5m cache write 1.25×, 1h cache write 2×).",
+  "display_cost": "$2.2067 (estimated)",
+  "session_files_scanned": 1,
+  "message_count": 46,
+  "models_used": [
+    "claude-sonnet-5"
+  ]
+}
