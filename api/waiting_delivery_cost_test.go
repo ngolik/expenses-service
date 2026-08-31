@@ -13,7 +13,7 @@ import (
 	"gorm.io/gorm"
 )
 
-// fakeValidator and fakeRepo let these handler tests run without a live
+// fakeValidator and waitingCostFakeRepo let these handler tests run without a live
 // auth-service or database, substituted in place of the package's default
 // waitingDeliveryCostValidator/waitingDeliveryCostRepo vars.
 
@@ -26,13 +26,13 @@ func (f *fakeValidator) UserExists(userID int) (bool, error) {
 	return f.exists, f.err
 }
 
-type fakeRepo struct {
+type waitingCostFakeRepo struct {
 	createErr error
 	findErr   error
 	stored    *model.Expense
 }
 
-func (f *fakeRepo) Create(expense *model.Expense) error {
+func (f *waitingCostFakeRepo) Create(expense *model.Expense) error {
 	if f.createErr != nil {
 		return f.createErr
 	}
@@ -41,7 +41,7 @@ func (f *fakeRepo) Create(expense *model.Expense) error {
 	return nil
 }
 
-func (f *fakeRepo) FindByID(id uint) (*model.Expense, error) {
+func (f *waitingCostFakeRepo) FindByID(id uint) (*model.Expense, error) {
 	if f.findErr != nil {
 		return nil, f.findErr
 	}
@@ -84,56 +84,56 @@ func TestAddWaitingDeliveryCostHandler(t *testing.T) {
 		name       string
 		body       reqBody
 		validator  *fakeValidator
-		repo       *fakeRepo
+		repo       *waitingCostFakeRepo
 		wantStatus int
 	}{
 		{
 			name:       "all fields present, user exists - 200",
 			body:       reqBody{DeliveryID: 10, UserID: 5, Amount: 99.99},
 			validator:  &fakeValidator{exists: true},
-			repo:       &fakeRepo{},
+			repo:       &waitingCostFakeRepo{},
 			wantStatus: 200,
 		},
 		{
 			name:       "missing delivery id - 400",
 			body:       reqBody{UserID: 5, Amount: 99.99},
 			validator:  &fakeValidator{exists: true},
-			repo:       &fakeRepo{},
+			repo:       &waitingCostFakeRepo{},
 			wantStatus: 400,
 		},
 		{
 			name:       "missing user id - 400",
 			body:       reqBody{DeliveryID: 10, Amount: 99.99},
 			validator:  &fakeValidator{exists: true},
-			repo:       &fakeRepo{},
+			repo:       &waitingCostFakeRepo{},
 			wantStatus: 400,
 		},
 		{
 			name:       "missing amount - 400",
 			body:       reqBody{DeliveryID: 10, UserID: 5},
 			validator:  &fakeValidator{exists: true},
-			repo:       &fakeRepo{},
+			repo:       &waitingCostFakeRepo{},
 			wantStatus: 400,
 		},
 		{
 			name:       "unknown user - 400",
 			body:       reqBody{DeliveryID: 10, UserID: 999, Amount: 99.99},
 			validator:  &fakeValidator{exists: false},
-			repo:       &fakeRepo{},
+			repo:       &waitingCostFakeRepo{},
 			wantStatus: 400,
 		},
 		{
 			name:       "auth-service call fails - 502",
 			body:       reqBody{DeliveryID: 10, UserID: 5, Amount: 99.99},
 			validator:  &fakeValidator{err: errors.New("connection refused")},
-			repo:       &fakeRepo{},
+			repo:       &waitingCostFakeRepo{},
 			wantStatus: 502,
 		},
 		{
 			name:       "db create fails - 500",
 			body:       reqBody{DeliveryID: 10, UserID: 5, Amount: 99.99},
 			validator:  &fakeValidator{exists: true},
-			repo:       &fakeRepo{createErr: errors.New("db down")},
+			repo:       &waitingCostFakeRepo{createErr: errors.New("db down")},
 			wantStatus: 500,
 		},
 	}
@@ -176,7 +176,7 @@ func TestAddWaitingDeliveryCostHandler_MalformedBody(t *testing.T) {
 	originalValidator := waitingDeliveryCostValidator
 	originalRepo := waitingDeliveryCostRepo
 	waitingDeliveryCostValidator = &fakeValidator{exists: true}
-	waitingDeliveryCostRepo = &fakeRepo{}
+	waitingDeliveryCostRepo = &waitingCostFakeRepo{}
 	defer func() {
 		waitingDeliveryCostValidator = originalValidator
 		waitingDeliveryCostRepo = originalRepo
@@ -195,7 +195,7 @@ func TestAddWaitingDeliveryCostHandler_MalformedBody(t *testing.T) {
 
 func TestGetWaitingDeliveryCostHandler(t *testing.T) {
 	t.Run("found", func(t *testing.T) {
-		repo := &fakeRepo{stored: &model.Expense{DeliveryID: 10, UserID: 5, Amount: 99.99}}
+		repo := &waitingCostFakeRepo{stored: &model.Expense{DeliveryID: 10, UserID: 5, Amount: 99.99}}
 		repo.stored.ID = 1
 
 		originalRepo := waitingDeliveryCostRepo
@@ -219,7 +219,7 @@ func TestGetWaitingDeliveryCostHandler(t *testing.T) {
 	})
 
 	t.Run("not found", func(t *testing.T) {
-		repo := &fakeRepo{}
+		repo := &waitingCostFakeRepo{}
 		originalRepo := waitingDeliveryCostRepo
 		waitingDeliveryCostRepo = repo
 		defer func() { waitingDeliveryCostRepo = originalRepo }()
@@ -233,7 +233,7 @@ func TestGetWaitingDeliveryCostHandler(t *testing.T) {
 	})
 
 	t.Run("non-numeric id", func(t *testing.T) {
-		repo := &fakeRepo{}
+		repo := &waitingCostFakeRepo{}
 		originalRepo := waitingDeliveryCostRepo
 		waitingDeliveryCostRepo = repo
 		defer func() { waitingDeliveryCostRepo = originalRepo }()
@@ -247,7 +247,7 @@ func TestGetWaitingDeliveryCostHandler(t *testing.T) {
 	})
 
 	t.Run("other repository error - 500", func(t *testing.T) {
-		repo := &fakeRepo{findErr: errors.New("db exploded")}
+		repo := &waitingCostFakeRepo{findErr: errors.New("db exploded")}
 		originalRepo := waitingDeliveryCostRepo
 		waitingDeliveryCostRepo = repo
 		defer func() { waitingDeliveryCostRepo = originalRepo }()
