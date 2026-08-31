@@ -18,15 +18,11 @@ const (
 	EnvBaseURL = "AUTH_SERVICE_BASE_URL"
 	// DefaultBaseURL is used when EnvBaseURL is unset or empty.
 	//
-	// [INFERRED — please validate] auth-service's own application.yml /
-	// application-dev.yml set server.servlet.context-path: /auth/, which
-	// would normally prefix every route (including /api/users/{id}) with
-	// /auth. The cross-repo contract for this story explicitly confirms the
-	// direct (non-gateway) route as /api/users/{id} with no such prefix, so
-	// that is what this client assumes by default. If the deployed
-	// auth-service instance actually applies that context-path, set
-	// AUTH_SERVICE_BASE_URL to include it (e.g. http://host:8081/auth)
-	// without any code change.
+	// auth-service's own application.yml / application-dev.yml set
+	// server.servlet.context-path: /auth/ (confirmed by reading both files),
+	// so every route including /api/users/{id} is actually served under
+	// /auth/api/users/{id}. This client's URL construction (below) appends
+	// that /auth prefix; BaseURL itself stays host:port only.
 	DefaultBaseURL = "http://localhost:8081"
 )
 
@@ -39,8 +35,10 @@ type UserValidator interface {
 }
 
 // HTTPUserValidator validates a user id by calling auth-service's
-// GET /api/users/{id} endpoint (confirmed route, see auth-service's
-// UserController.java - mapped at /api/users, not /auth/api/users).
+// GET /auth/api/users/{id} endpoint. The controller itself is mapped at
+// /api/users (UserController.java), but auth-service's
+// server.servlet.context-path: /auth/ (application.yml) prefixes every
+// route with /auth - confirmed by reading both files.
 type HTTPUserValidator struct {
 	BaseURL    string
 	HTTPClient *http.Client
@@ -67,7 +65,7 @@ func NewHTTPUserValidator() *HTTPUserValidator {
 // missing".
 func (v *HTTPUserValidator) UserExists(userID int) (bool, error) {
 	baseURL := strings.TrimRight(v.BaseURL, "/")
-	url := fmt.Sprintf("%s/api/users/%d", baseURL, userID)
+	url := fmt.Sprintf("%s/auth/api/users/%d", baseURL, userID)
 
 	client := v.HTTPClient
 	if client == nil {

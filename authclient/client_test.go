@@ -22,7 +22,7 @@ func TestHTTPUserValidator_UserExists(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				if r.URL.Path != "/api/users/42" {
+				if r.URL.Path != "/auth/api/users/42" {
 					t.Errorf("unexpected path: %s", r.URL.Path)
 				}
 				w.WriteHeader(tt.statusCode)
@@ -71,8 +71,8 @@ func TestHTTPUserValidator_TrimsTrailingSlashInBaseURL(t *testing.T) {
 	if _, err := v.UserExists(7); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if gotPath != "/api/users/7" {
-		t.Errorf("got path %q, want /api/users/7", gotPath)
+	if gotPath != "/auth/api/users/7" {
+		t.Errorf("got path %q, want /auth/api/users/7", gotPath)
 	}
 }
 

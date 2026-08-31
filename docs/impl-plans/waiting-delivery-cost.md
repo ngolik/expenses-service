@@ -12,7 +12,7 @@
 | Area | Why |
 | --- | --- |
 | `model/expense.go` | Add `DeliveryID int` field to `Expense` |
-| `authclient/client.go` (new) | `UserExists(userID int) (bool, error)` calling `GET {baseURL}/api/users/{id}` on auth-service |
+| `authclient/client.go` (new) | `UserExists(userID int) (bool, error)` calling `GET {baseURL}/auth/api/users/{id}` on auth-service |
 | `authclient/client_test.go` (new) | Cover 200/404/other-status/network-error/env-var-default behavior using `httptest.Server` |
 | `service/waiting_delivery_cost.go` (new) | `UserValidator`/`ExpenseRepository` interfaces, `ValidationError`/`UpstreamError` types, `AddWaitingDeliveryCost`, `GetWaitingDeliveryCost`, default GORM-backed repository |
 | `service/waiting_delivery_cost_test.go` (new) | Table-driven tests against a fake repository + fake validator: all-fields-present success, each missing-field rejection, unknown-user rejection, validator-error → upstream error, repository-error passthrough, get-found, get-not-found |
@@ -34,7 +34,7 @@ No changes to `api/expense.go`, `service/expense.go`, `database/config.go`, `mai
 ### Step 2 — `authclient`: isolate the auth-service call
 
 - **Outcome**: A small, mockable client that answers "does this user id exist in auth-service?"
-- **Approach**: New package `authclient`. `HTTPUserValidator{BaseURL string; HTTPClient *http.Client}` with `UserExists(userID int) (bool, error)`: GET `{BaseURL}/api/users/{id}`; 200 → `true, nil`; 404 → `false, nil`; anything else (including a transport error) → `false, err`. `NewHTTPUserValidator()` reads `AUTH_SERVICE_BASE_URL`, defaulting to `http://localhost:8081` if unset. No new dependency — stdlib `net/http` only.
+- **Approach**: New package `authclient`. `HTTPUserValidator{BaseURL string; HTTPClient *http.Client}` with `UserExists(userID int) (bool, error)`: GET `{BaseURL}/auth/api/users/{id}`; 200 → `true, nil`; 404 → `false, nil`; anything else (including a transport error) → `false, err`. `NewHTTPUserValidator()` reads `AUTH_SERVICE_BASE_URL`, defaulting to `http://localhost:8081` (host:port only, `/auth` is appended by the client) if unset. No new dependency — stdlib `net/http` only.
 - **Tests**: `authclient/client_test.go` using `httptest.NewServer` to stub 200/404/500 responses, plus a case pointing at a closed port to exercise the transport-error branch, plus a test that `NewHTTPUserValidator` picks up `AUTH_SERVICE_BASE_URL` when set and falls back to the default when unset.
 - **Done when**: All `authclient` tests pass in isolation (no real auth-service needed).
 
@@ -63,11 +63,11 @@ No changes to `api/expense.go`, `service/expense.go`, `database/config.go`, `mai
 
 | Risk | Mitigation |
 | --- | --- |
-| `auth-service`'s `application.yml`/`application-dev.yml` set `server.servlet.context-path: /auth/`, which would prefix every route with `/auth`, conflicting with the spec's confirmed `/api/users/{id}` (no prefix) | `AUTH_SERVICE_BASE_URL` is fully configurable per environment; documented as `[INFERRED — please validate]` in the architecture doc rather than silently guessed at. |
+| The cross-repo contract memo asserted `/api/users/{id}` with no `/auth` prefix; `auth-service`'s own `application.yml`/`application-dev.yml` (confirmed by reading both) set `server.servlet.context-path: /auth/`, which prefixes every route | **Resolved during implementation**: path construction fixed to `/auth/api/users/{id}`; `AUTH_SERVICE_BASE_URL` stays host:port only. The specification's cross-repo contract memo should be corrected to match. |
 | Auth-service failure modes beyond "404 = unknown user" aren't specified by the spec (network error, 500, malformed response) | Treated as a distinct `UpstreamError` → 502, so it's neither silently accepted nor conflated with a 400 validation failure. Documented as `[INFERRED — please validate]`. |
 | Reusing the `Expense` table for wait-cost records means `GET /expenses/rest/all` will now also return wait-cost rows (with `DeliveryID` populated) alongside plain expenses | Acceptable per spec — no list-all endpoint is required for wait-cost records, and the spec doesn't require *excluding* them from the existing all-expenses list either. Not treated as a behavior change to `/all`'s contract (same handler, same query, same response shape) — it will simply include more rows over time, no different than expenses added via `/add` growing that list today. If this is undesired, filtering `/all` to exclude `DeliveryID != 0` rows is a follow-up, not implied by any AC here. |
 | No Go toolchain available in this environment to run `go build`/`go test` | Reported plainly as not run, not claimed as passing; code is written to compile against the confirmed `go.mod` dependency set (no new external dependency added) to minimize the chance of a build break. |
 
 ## Open questions
 
-- None blocking — two `[INFERRED — please validate]` items above (auth-service base path re: context-path, and upstream-failure status code) are carried into the architecture doc and should be confirmed once a running `auth-service` instance is available to test against.
+- None blocking — the auth-service base-path item above was resolved during implementation (not just inferred) by reading `auth-service`'s `application.yml` directly. One `[INFERRED — please validate]` item remains (upstream-failure status code choice, 502) and should be confirmed once a running `auth-service` instance is available to test against.
