@@ -37,4 +37,14 @@ type Expense struct {
 	// both leave it false. Only the damage-writeoff creation path
 	// (service.AddDamageWriteOff) sets it true.
 	IsDamageWriteOff bool
+	// IsShortage distinguishes a shortage record from a wait-cost or
+	// damage-writeoff record sharing the same DeliveryID/UserID/Amount
+	// fields - finance must not see a shortage amount conflated with either
+	// of those for the same delivery (spec AC1). Zero value (false) is what
+	// every existing record has - the general-purpose POST /expenses/rest/add
+	// path, the waiting-delivery-cost creation path
+	// (service.AddWaitingDeliveryCost), and the damage-writeoff creation path
+	// (service.AddDamageWriteOff) all leave it false. Only the shortage
+	// creation path (service.AddShortage) sets it true.
+	IsShortage bool
 }
